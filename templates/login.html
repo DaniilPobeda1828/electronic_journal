@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Вход в систему{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-5">
+        <div class="card shadow fade-in">
+            <div class="card-header bg-primary text-white text-center">
+                <h4 class="mb-0">
+                    <i class="fas fa-sign-in-alt"></i> Авторизация
+                </h4>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST" action="{{ url_for('login') }}">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        <label for="login" class="form-label">
+                            <i class="fas fa-user"></i> Логин
+                        </label>
+                        {{ form.login(class="form-control" + (" is-invalid" if form.login.errors else ""), 
+                                    placeholder="Введите ваш логин", 
+                                    autocomplete="off") }}
+                        {% for error in form.login.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label">
+                            <i class="fas fa-lock"></i> Пароль
+                        </label>
+                        {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), 
+                                        placeholder="Введите пароль") }}
+                        {% for error in form.password.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-arrow-right"></i> Войти
+                    </button>
+                </form>
+                
+                <hr class="my-4">
+                
+                <div class="alert alert-info small">
+                    <i class="fas fa-info-circle"></i> <strong>Тестовые учётные записи:</strong><br>
+                    <i class="fas fa-user-shield"></i> <strong>Администратор:</strong> admin / admin123<br>
+                    <i class="fas fa-chalkboard-user"></i> <strong>Преподаватель:</strong> создаётся администратором<br>
+                    <i class="fas fa-user-graduate"></i> <strong>Студент:</strong> создаётся администратором<br>
+                    <small class="text-muted">При добавлении студента логин и пароль генерируются автоматически</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
