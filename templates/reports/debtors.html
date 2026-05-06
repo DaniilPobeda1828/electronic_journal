@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Должники{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card bg-danger text-white mb-4">
+        <div class="card-body">
+            <h2><i class="fas fa-exclamation-triangle"></i> Список должников</h2>
+            <p class="mb-0">Студенты со средним баллом ниже 3.0</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5>Результаты</h5>
+        </div>
+        <div class="card-body">
+            {% if students %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>№</th>
+                                <th>ФИО студента</th>
+                                <th>Группа</th>
+                                <th>Средний балл</th>
+                                <th>Количество оценок</th>
+                                <th>Действие</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in students %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>{{ item.student.full_name }}</td>
+                                <td><span class="badge bg-primary">{{ item.group }}</span></td>
+                                <td>
+                                    <span class="badge bg-danger">{{ "%.2f"|format(item.avg_grade) }}</span>
+                                </td>
+                                <td>{{ item.student.grades|length }}</td>
+                                <td>
+                                    <a href="{{ url_for('student_my_grades') }}?student_id={{ item.student.id }}" 
+                                       class="btn btn-sm btn-info">
+                                        Подробнее
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="alert alert-warning mt-3">
+                    <strong>Итого:</strong> {{ students|length }} должников
+                </div>
+            {% else %}
+                <div class="alert alert-success text-center">
+                    <i class="fas fa-check-circle"></i> Отлично! Нет должников.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

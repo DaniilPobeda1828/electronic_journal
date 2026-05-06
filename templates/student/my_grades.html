@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Мои оценки{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Информация о студенте -->
+    <div class="card bg-primary text-white mb-4">
+        <div class="card-body">
+            <h2><i class="fas fa-user-graduate"></i> {{ student.full_name }}</h2>
+            <p class="mb-0">Группа: {{ student.group.name }}</p>
+            <p>Дата рождения: {{ student.birth_date.strftime('%d.%m.%Y') }}</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Средний балл -->
+        <div class="col-md-4 mb-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-chart-line fa-3x text-info"></i>
+                    <h2 class="mt-2">
+                        {% if avg_grade > 0 %}
+                            {{ "%.2f"|format(avg_grade) }}
+                        {% else %}
+                            Нет оценок
+                        {% endif %}
+                    </h2>
+                    <p class="text-muted">Средний балл</p>
+                    
+                    {% if avg_grade >= 4.75 %}
+                        <span class="badge bg-success">Отличник</span>
+                    {% elif avg_grade < 3 and avg_grade > 0 %}
+                        <span class="badge bg-danger">Должник</span>
+                    {% elif avg_grade > 0 %}
+                        <span class="badge bg-info">Успевает</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Статистика по оценкам -->
+        <div class="col-md-8 mb-4">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5>Статистика оценок</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-3">
+                            <div class="border rounded p-2">
+                                <h3 class="text-success">{{ grades|selectattr('grade', 'equalto', 5)|list|length }}</h3>
+                                <small>Пятёрок</small>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="border rounded p-2">
+                                <h3 class="text-info">{{ grades|selectattr('grade', 'equalto', 4)|list|length }}</h3>
+                                <small>Четвёрок</small>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="border rounded p-2">
+                                <h3 class="text-warning">{{ grades|selectattr('grade', 'equalto', 3)|list|length }}</h3>
+                                <small>Троек</small>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="border rounded p-2">
+                                <h3 class="text-danger">{{ grades|selectattr('grade', 'equalto', 2)|list|length }}</h3>
+                                <small>Двоек</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Таблица оценок -->
+    <div class="card">
+        <div class="card-header bg-info text-white">
+            <h5><i class="fas fa-table"></i> Мои оценки по предметам</h5>
+        </div>
+        <div class="card-body">
+            {% if grades %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Предмет</th>
+                                <th>Оценка</th>
+                                <th>Тип работы</th>
+                                <th>Дата</th>
+                                <th>Преподаватель</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for grade in grades %}
+                            <tr>
+                                <td><strong>{{ grade.subject.name }}</strong></td>
+                                <td>
+                                    {% if grade.grade >= 4 %}
+                                        <span class="badge bg-success">{{ grade.grade }}</span>
+                                    {% elif grade.grade == 3 %}
+                                        <span class="badge bg-warning text-dark">{{ grade.grade }}</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">{{ grade.grade }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ grade.work_type }}</td>
+                                <td>{{ grade.date.strftime('%d.%m.%Y') }}</td>
+                                <td>{{ grade.subject.teacher.full_name }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle"></i> У вас пока нет оценок
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

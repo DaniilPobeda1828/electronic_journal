@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+
+{% block title %}Сравнение групп{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card bg-info text-white mb-4">
+        <div class="card-body">
+            <h2><i class="fas fa-chart-bar"></i> Сравнение успеваемости групп</h2>
+            <p class="mb-0">Анализ среднего балла по группам</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Таблица с рейтингом -->
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5>Рейтинг групп</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Место</th>
+                                    <th>Группа</th>
+                                    <th>Студентов</th>
+                                    <th>Средний балл</th>
+                                    <th>Успеваемость</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% set sorted_groups = groups|sort(attribute='avg_grade', reverse=true) %}
+                                {% for item in sorted_groups %}
+                                <tr>
+                                    <td class="text-center">
+                                        {% if loop.index == 1 %}
+                                            <span class="badge bg-warning text-dark">🏆 1 место</span>
+                                        {% elif loop.index == 2 %}
+                                            <span class="badge bg-secondary">2 место</span>
+                                        {% elif loop.index == 3 %}
+                                            <span class="badge bg-danger">3 место</span>
+                                        {% else %}
+                                            {{ loop.index }} место
+                                        {% endif %}
+                                    </td>
+                                    <td><strong>{{ item.group.name }}</strong></td>
+                                    <td>{{ item.student_count }}</td>
+                                    <td>
+                                        {% set avg_val = item.avg_grade %}
+                                        {% if avg_val >= 4 %}
+                                            <span class="badge bg-success">{{ "%.2f"|format(avg_val) }}</span>
+                                        {% elif avg_val >= 3 %}
+                                            <span class="badge bg-warning text-dark">{{ "%.2f"|format(avg_val) }}</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">{{ "%.2f"|format(avg_val) }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% set avg_val = item.avg_grade %}
+                                        {% if avg_val >= 4 %}
+                                            <span class="badge bg-success">Отлично</span>
+                                        {% elif avg_val >= 3 %}
+                                            <span class="badge bg-warning text-dark">Хорошо</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Плохо</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Детальная статистика по группам -->
+    <div class="card mt-3">
+        <div class="card-header bg-primary text-white">
+            <h5>Детальная статистика по группам</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Группа</th>
+                            <th>Кол-во студентов</th>
+                            <th>Средний балл</th>
+                            <th>Отличники</th>
+                            <th>Успевающие</th>
+                            <th>Должники</th>
+                            <th>Всего оценок</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in groups %}
+                        <tr>
+                            <td><strong>{{ item.group.name }}</strong></td>
+                            <td>{{ item.student_count }}</td>
+                            <td>
+                                {% set avg_val = item.avg_grade %}
+                                {% if avg_val >= 4 %}
+                                    <span class="badge bg-success">{{ "%.2f"|format(avg_val) }}</span>
+                                {% elif avg_val >= 3 %}
+                                    <span class="badge bg-warning text-dark">{{ "%.2f"|format(avg_val) }}</span>
+                                {% else %}
+                                    <span class="badge bg-danger">{{ "%.2f"|format(avg_val) }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% set excellent_count = 0 %}
+                                {% for student in item.group.students %}
+                                    {% if student.get_average_grade() >= 4.75 %}
+                                        {% set excellent_count = excellent_count + 1 %}
+                                    {% endif %}
+                                {% endfor %}
+                                <span class="badge bg-success">{{ excellent_count }}</span>
+                            </td>
+                            <td class="text-center">
+                                {% set passed_count = 0 %}
+                                {% for student in item.group.students %}
+                                    {% set avg_val = student.get_average_grade() %}
+                                    {% if avg_val >= 3 and avg_val < 4.75 %}
+                                        {% set passed_count = passed_count + 1 %}
+                                    {% endif %}
+                                {% endfor %}
+                                <span class="badge bg-info">{{ passed_count }}</span>
+                            </td>
+                            <td class="text-center">
+                                {% set debtor_count = 0 %}
+                                {% for student in item.group.students %}
+                                    {% set avg_val = student.get_average_grade() %}
+                                    {% if avg_val < 3 and avg_val > 0 %}
+                                        {% set debtor_count = debtor_count + 1 %}
+                                    {% endif %}
+                                {% endfor %}
+                                <span class="badge bg-danger">{{ debtor_count }}</span>
+                            </td>
+                            <td class="text-center">
+                                {% set total_grades_count = 0 %}
+                                {% for student in item.group.students %}
+                                    {% set total_grades_count = total_grades_count + student.grades|length %}
+                                {% endfor %}
+                                {{ total_grades_count }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Итоговая статистика -->
+    <div class="card mt-3">
+        <div class="card-header bg-secondary text-white">
+            <h5>Общая статистика</h5>
+        </div>
+        <div class="card-body">
+            <div class="row text-center">
+                <div class="col-md-3">
+                    <div class="border rounded p-3">
+                        <h3 class="text-primary">{{ groups|length }}</h3>
+                        <p>Всего групп</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="border rounded p-3">
+                        {% set total_students = 0 %}
+                        {% for item in groups %}
+                            {% set total_students = total_students + item.student_count %}
+                        {% endfor %}
+                        <h3 class="text-success">{{ total_students }}</h3>
+                        <p>Всего студентов</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="border rounded p-3">
+                        {% set total_grades_all = 0 %}
+                        {% for item in groups %}
+                            {% for student in item.group.students %}
+                                {% set total_grades_all = total_grades_all + student.grades|length %}
+                            {% endfor %}
+                        {% endfor %}
+                        <h3 class="text-info">{{ total_grades_all }}</h3>
+                        <p>Всего оценок</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="border rounded p-3">
+                        {% set all_grades = [] %}
+                        {% for item in groups %}
+                            {% for student in item.group.students %}
+                                {% for grade in student.grades %}
+                                    {% set _ = all_grades.append(grade.grade) %}
+                                {% endfor %}
+                            {% endfor %}
+                        {% endfor %}
+                        {% if all_grades|length > 0 %}
+                            {% set total_avg_val = all_grades|sum / all_grades|length %}
+                            <h3 class="text-warning">{{ "%.2f"|format(total_avg_val) }}</h3>
+                        {% else %}
+                            <h3 class="text-warning">0</h3>
+                        {% endif %}
+                        <p>Общий средний балл</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

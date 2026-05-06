@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Графики успеваемости{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card bg-primary text-white mb-4">
+        <div class="card-body">
+            <h2><i class="fas fa-chart-pie"></i> Визуализация успеваемости</h2>
+            <p class="mb-0">Статистика и анализ успеваемости студентов</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5>Выбор группы для анализа</h5>
+                </div>
+                <div class="card-body">
+                    <form method="GET" class="row">
+                        <div class="col-md-6">
+                            <select name="group_id" class="form-select" required>
+                                <option value="">Выберите группу</option>
+                                {% for group in groups %}
+                                    <option value="{{ group.id }}" {% if selected_group_id == group.id %}selected{% endif %}>
+                                        {{ group.name }} ({{ group.students|length }} студентов)
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <button type="submit" class="btn btn-primary">Показать статистику</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if selected_group %}
+    <div class="row">
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5>Группа: {{ selected_group.name }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="border rounded p-3 text-center">
+                                <h4>Всего студентов</h4>
+                                <h2 class="text-primary">{{ students|length }}</h2>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="border rounded p-3 text-center">
+                                <h4>Всего оценок</h4>
+                                <h2 class="text-success">{{ total_grades_count }}</h2>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5>Распределение оценок</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered">
+                        <thead class="table-dark">
+                            <tr><th>Оценка</th><th>Количество</th><th>Процент</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr class="table-success">
+                                <td class="text-center"><strong>5</strong></td>
+                                <td class="text-center">{{ grade_distribution.get(5, 0) }}</td>
+                                <td>
+                                    <div class="clearfix">
+                                        <span>{{ (grade_distribution.get(5, 0) / (total_grades_count + 0.01) * 100)|round|int }}%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="table-info">
+                                <td class="text-center"><strong>4</strong></td>
+                                <td class="text-center">{{ grade_distribution.get(4, 0) }}</td>
+                                <td>
+                                    <span>{{ (grade_distribution.get(4, 0) / (total_grades_count + 0.01) * 100)|round|int }}%</span>
+                                </td>
+                            </tr>
+                            <tr class="table-warning">
+                                <td class="text-center"><strong>3</strong></td>
+                                <td class="text-center">{{ grade_distribution.get(3, 0) }}</td>
+                                <td>
+                                    <span>{{ (grade_distribution.get(3, 0) / (total_grades_count + 0.01) * 100)|round|int }}%</span>
+                                </td>
+                            </tr>
+                            <tr class="table-danger">
+                                <td class="text-center"><strong>2</strong></td>
+                                <td class="text-center">{{ grade_distribution.get(2, 0) }}</td>
+                                <td>
+                                    <span>{{ (grade_distribution.get(2, 0) / (total_grades_count + 0.01) * 100)|round|int }}%</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5>Средние баллы по предметам</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr><th>Предмет</th><th>Средний балл</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for subject in subjects %}
+                                <tr>
+                                    <td>{{ subject.name }}</td>
+                                    <td>
+                                        {% set avg_val = subject_averages.get(subject.id, 0) %}
+                                        {% if avg_val >= 4 %}
+                                            <span class="badge bg-success">{{ "%.2f"|format(avg_val) }}</span>
+                                        {% elif avg_val >= 3 %}
+                                            <span class="badge bg-warning text-dark">{{ "%.2f"|format(avg_val) }}</span>
+                                        {% elif avg_val > 0 %}
+                                            <span class="badge bg-danger">{{ "%.2f"|format(avg_val) }}</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Нет оценок</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5>Список студентов с успеваемостью</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>№</th>
+                                    <th>ФИО студента</th>
+                                    <th>Количество оценок</th>
+                                    <th>Средний балл</th>
+                                    <th>Статус</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for student in students %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td>{{ student.full_name }}</td>
+                                    <td>{{ student.grades|length }}</td>
+                                    <td>
+                                        {% set avg_val = student.get_average_grade() %}
+                                        {% if avg_val >= 4.75 %}
+                                            <span class="badge bg-success">{{ "%.2f"|format(avg_val) }}</span>
+                                        {% elif avg_val >= 4 %}
+                                            <span class="badge bg-info">{{ "%.2f"|format(avg_val) }}</span>
+                                        {% elif avg_val >= 3 %}
+                                            <span class="badge bg-warning text-dark">{{ "%.2f"|format(avg_val) }}</span>
+                                        {% elif avg_val > 0 %}
+                                            <span class="badge bg-danger">{{ "%.2f"|format(avg_val) }}</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Нет оценок</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% set avg_val = student.get_average_grade() %}
+                                        {% if avg_val >= 4.75 %}
+                                            <span class="badge bg-success">Отличник</span>
+                                        {% elif avg_val < 3 and avg_val > 0 %}
+                                            <span class="badge bg-danger">Должник</span>
+                                        {% elif avg_val > 0 %}
+                                            <span class="badge bg-info">Успевает</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Нет оценок</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
