@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Выставление оценок{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Информация о предмете -->
+    <div class="card bg-info text-white mb-4">
+        <div class="card-body">
+            <h3>Предмет: {{ subject.name }}</h3>
+            <p>Преподаватель: {{ subject.teacher.full_name }}</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Выбор группы -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5>Выбор группы</h5>
+                </div>
+                <div class="card-body">
+                    <form method="GET">
+                        <select name="group_id" class="form-select" required>
+                            <option value="">Выберите группу</option>
+                            {% for group in groups %}
+                                <option value="{{ group.id }}" {% if selected_group|int == group.id %}selected{% endif %}>
+                                    {{ group.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-primary mt-2 w-100">Показать</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Список студентов -->
+        <div class="col-md-8">
+            {% if students %}
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5>Список студентов</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>ФИО</th>
+                                    <th>Текущая оценка</th>
+                                    <th>Действие</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for student in students %}
+                                <tr>
+                                    <td>{{ student.full_name }}</td>
+                                    <td>
+                                        {% set current_grade = student.grades|selectattr('subject_id', 'equalto', subject.id)|first %}
+                                        {% if current_grade %}
+                                            {{ current_grade.grade }} ({{ current_grade.work_type }})
+                                        {% else %}
+                                            Нет оценки
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#gradeModal{{ student.id }}">
+                                            Оценить
+                                        </button>
+                                    </td>
+                                </tr>
+
+                                <!-- Модальное окно -->
+                                <div class="modal fade" id="gradeModal{{ student.id }}" tabindex="-1">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header bg-primary text-white">
+                                                <h5>{{ student.full_name }}</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <form action="{{ url_for('add_grade') }}" method="POST">
+                                                <div class="modal-body">
+                                                    <input type="hidden" name="student_id" value="{{ student.id }}">
+                                                    <input type="hidden" name="subject_id" value="{{ subject.id }}">
+                                                    
+                                                    <div class="mb-3">
+                                                        <label>Оценка</label>
+                                                        <select name="grade" class="form-select" required>
+                                                            <option value="5">5 - Отлично</option>
+                                                            <option value="4">4 - Хорошо</option>
+                                                            <option value="3">3 - Удовлетворительно</option>
+                                                            <option value="2">2 - Неудовлетворительно</option>
+                                                        </select>
+                                                    </div>
+                                                    
+                                                    <div class="mb-3">
+                                                        <label>Тип работы</label>
+                                                        <select name="work_type" class="form-select" required>
+                                                            <option value="лекция">Лекция</option>
+                                                            <option value="практика">Практика</option>
+                                                            <option value="экзамен">Экзамен</option>
+                                                        </select>
+                                                    </div>
+                                                    
+                                                    <div class="mb-3">
+                                                        <label>Дата</label>
+                                                        <input type="date" name="date" class="form-control" required>
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {% elif selected_group %}
+                <div class="card">
+                    <div class="card-body text-center">
+                        <p>В этой группе нет студентов</p>
+                    </div>
+                </div>
+            {% else %}
+                <div class="card">
+                    <div class="card-body text-center">
+                        <p>Выберите группу слева</p>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var today = new Date().toISOString().split('T')[0];
+    var inputs = document.querySelectorAll('input[type="date"]');
+    for(var i = 0; i < inputs.length; i++) {
+        if(!inputs[i].value) {
+            inputs[i].value = today;
+        }
+    }
+});
+</script>
+{% endblock %}

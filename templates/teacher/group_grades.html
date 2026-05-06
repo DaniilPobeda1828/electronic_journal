@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Успеваемость группы - {{ group.name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Заголовок -->
+    <div class="card bg-success text-white mb-4">
+        <div class="card-body">
+            <h2>Группа: {{ group.name }}</h2>
+            <p>Всего студентов: {{ students|length }}</p>
+            <a href="{{ url_for('export_group_excel', group_id=group.id) }}" class="btn btn-light">
+                Экспорт в Excel
+            </a>
+        </div>
+    </div>
+
+    <!-- Статистика -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3>{{ "%.2f"|format(group_stats.avg_grade) if group_stats.avg_grade else '0' }}</h3>
+                    <p>Средний балл</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3>{{ group_stats.excellent_count }}</h3>
+                    <p>Отличники</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3>{{ group_stats.debtor_count }}</h3>
+                    <p>Должники</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3>{{ group_stats.passed_count }}</h3>
+                    <p>Успевающие</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Таблица -->
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5>Таблица успеваемости</h5>
+        </div>
+        <div class="card-body">
+            <table class="table table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>№</th>
+                        <th>ФИО</th>
+                        <th>Дата рождения</th>
+                        {% for subject in subjects %}
+                            <th>{{ subject.name }}</th>
+                        {% endfor %}
+                        <th>Средний балл</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ student.full_name }}</td>
+                        <td>{{ student.birth_date.strftime('%d.%m.%Y') }}</td>
+                        
+                        {% for subject in subjects %}
+                            <td class="text-center">
+                                {% set grade_val = grades_data[student.id][subject.id] %}
+                                {% if grade_val != '-' %}
+                                    <span class="badge bg-secondary">{{ grade_val }}</span>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                        
+                        <td class="text-center">
+                            {% set avg_val = student.get_average_grade() %}
+                            {% if avg_val > 0 %}
+                                {{ "%.2f"|format(avg_val) }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        
+                        <td class="text-center">
+                            {% set avg_val = student.get_average_grade() %}
+                            {% if avg_val >= 4.75 %}
+                                Отличник
+                            {% elif avg_val < 3 and avg_val > 0 %}
+                                Должник
+                            {% elif avg_val > 0 %}
+                                Успевает
+                            {% else %}
+                                Нет оценок
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
