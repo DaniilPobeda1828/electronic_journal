@@ -2,17 +2,8 @@
 
 {% block title %}Панель преподавателя{% endblock %}
 
-{% block breadcrumb %}
-<nav aria-label="breadcrumb">
-    <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Главная</a></li>
-        <li class="breadcrumb-item active">Панель преподавателя</li>
-    </ol>
-</nav>
-{% endblock %}
-
 {% block content %}
-<div class="fade-in">
+<div class="container">
     <!-- Приветствие -->
     <div class="card bg-info text-white mb-4">
         <div class="card-body">
@@ -24,7 +15,7 @@
     <!-- Статистика -->
     <div class="row mb-4">
         <div class="col-md-4">
-            <div class="card stat-card text-center">
+            <div class="card text-center">
                 <div class="card-body">
                     <i class="fas fa-book fa-3x text-info"></i>
                     <h3 class="mt-2">{{ subjects|length }}</h3>
@@ -33,7 +24,7 @@
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card stat-card text-center">
+            <div class="card text-center">
                 <div class="card-body">
                     <i class="fas fa-graduation-cap fa-3x text-success"></i>
                     <h3 class="mt-2">{{ total_students }}</h3>
@@ -42,7 +33,7 @@
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card stat-card text-center">
+            <div class="card text-center">
                 <div class="card-body">
                     <i class="fas fa-star fa-3x text-warning"></i>
                     <h3 class="mt-2">{{ total_grades }}</h3>
@@ -79,10 +70,6 @@
                                     <a href="{{ url_for('teacher_grades', subject_id=subject.id) }}" 
                                        class="btn btn-primary">
                                         <i class="fas fa-plus-circle"></i> Выставить оценки
-                                    </a>
-                                    <a href="{{ url_for('teacher_subject_stats', subject_id=subject.id) }}" 
-                                       class="btn btn-outline-info">
-                                        <i class="fas fa-chart-line"></i> Статистика предмета
                                     </a>
                                 </div>
                             </div>
