@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Управление расписанием{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card bg-primary text-white mb-4">
+        <div class="card-body">
+            <h2><i class="fas fa-calendar-plus"></i> Управление расписанием</h2>
+            <p class="mb-0">Добавление, редактирование и удаление занятий в расписании</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5>Выбор группы</h5>
+                </div>
+                <div class="card-body">
+                    <form method="GET" action="{{ url_for('admin_schedule') }}">
+                        <select name="group_id" class="form-select" required>
+                            <option value="">Выберите группу</option>
+                            {% for group in groups %}
+                                <option value="{{ group.id }}" {% if selected_group and selected_group.id == group.id %}selected{% endif %}>
+                                    {{ group.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-primary mt-2 w-100">Выбрать</button>
+                    </form>
+                </div>
+            </div>
+
+            {% if selected_group %}
+            <div class="card mt-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5>Добавить занятие</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('add_schedule_item') }}">
+                        <input type="hidden" name="group_id" value="{{ selected_group.id }}">
+                        
+                        <div class="mb-2">
+                            <label class="form-label">Предмет</label>
+                            <select name="subject_id" class="form-select" required>
+                                <option value="">Выберите предмет</option>
+                                {% for subject in subjects %}
+                                    <option value="{{ subject.id }}">{{ subject.name }} ({{ subject.teacher.full_name }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-2">
+                            <label class="form-label">Кабинет</label>
+                            <input type="text" name="classroom" class="form-control" placeholder="Например: 201" required>
+                        </div>
+                        
+                        <div class="mb-2">
+                            <label class="form-label">День недели</label>
+                            <select name="day_of_week" class="form-select" required>
+                                <option value="1">Понедельник</option>
+                                <option value="2">Вторник</option>
+                                <option value="3">Среда</option>
+                                <option value="4">Четверг</option>
+                                <option value="5">Пятница</option>
+                                <option value="6">Суббота</option>
+                                <option value="7">Воскресенье</option>
+                            </select>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-6">
+                                <label class="form-label">Начало</label>
+                                <input type="time" name="start_time" class="form-control" required>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">Конец</label>
+                                <input type="time" name="end_time" class="form-control" required>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success mt-3 w-100">Добавить занятие</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-md-8">
+            {% if selected_group and schedule_items %}
+                <h4 class="mb-3">Расписание группы: {{ selected_group.name }}</h4>
+                
+                {% set week_days = {1: 'Понедельник', 2: 'Вторник', 3: 'Среда', 4: 'Четверг', 5: 'Пятница', 6: 'Суббота', 7: 'Воскресенье'} %}
+                
+                {% for day_num in [1,2,3,4,5,6,7] %}
+                    {% set day_items = [] %}
+                    {% for item in schedule_items %}
+                        {% if item.day_of_week == day_num %}
+                            {% set _ = day_items.append(item) %}
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if day_items %}
+                        <div class="card mb-3">
+                            <div class="card-header bg-info text-white">
+                                <h5 class="mb-0">{{ week_days[day_num] }}</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead class="table-dark">
+                                            <tr>
+                                                <th>Время</th>
+                                                <th>Предмет</th>
+                                                <th>Преподаватель</th>
+                                                <th>Кабинет</th>
+                                                <th>Действия</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for item in day_items %}
+                                            <tr>
+                                                <td>{{ item.start_time }} - {{ item.end_time }}</td>
+                                                <td><strong>{{ item.subject.name }}</strong></td>
+                                                <td>{{ item.subject.teacher.full_name }}</td>
+                                                <td><span class="badge bg-secondary">{{ item.classroom }}</span></td>
+                                                <td>
+                                                    <button type="button" class="btn btn-sm btn-warning" 
+                                                            data-bs-toggle="modal" 
+                                                            data-bs-target="#editModal{{ item.id }}">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <a href="{{ url_for('delete_schedule_item', schedule_id=item.id) }}" 
+                                                       class="btn btn-sm btn-danger"
+                                                       onclick="return confirm('Удалить это занятие?')">
+                                                        <i class="fas fa-trash"></i>
+                                                    </a>
+                                                </td>
+                                            </tr>
+
+                                            <!-- Модальное окно редактирования -->
+                                            <div class="modal fade" id="editModal{{ item.id }}" tabindex="-1">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header bg-warning">
+                                                            <h5 class="modal-title">Редактирование занятия</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                        </div>
+                                                        <form method="POST" action="{{ url_for('edit_schedule_item', schedule_id=item.id) }}">
+                                                            <div class="modal-body">
+                                                                <div class="mb-2">
+                                                                    <label class="form-label">Предмет</label>
+                                                                    <input type="text" class="form-control" value="{{ item.subject.name }}" disabled>
+                                                                </div>
+                                                                <div class="mb-2">
+                                                                    <label class="form-label">Кабинет</label>
+                                                                    <input type="text" name="classroom" class="form-control" value="{{ item.classroom }}" required>
+                                                                </div>
+                                                                <div class="row">
+                                                                    <div class="col-6">
+                                                                        <label class="form-label">Начало</label>
+                                                                        <input type="time" name="start_time" class="form-control" value="{{ item.start_time }}" required>
+                                                                    </div>
+                                                                    <div class="col-6">
+                                                                        <label class="form-label">Конец</label>
+                                                                        <input type="time" name="end_time" class="form-control" value="{{ item.end_time }}" required>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                                                                <button type="submit" class="btn btn-warning">Сохранить</button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+                
+            {% elif selected_group %}
+                <div class="alert alert-warning text-center">
+                    <i class="fas fa-exclamation-triangle"></i> Расписание для этой группы пока не составлено.
+                    <br>Добавьте занятия через форму слева.
+                </div>
+            {% else %}
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle"></i> Выберите группу для управления расписанием.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

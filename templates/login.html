@@ -4,54 +4,81 @@
 
 {% block content %}
 <div class="row justify-content-center mt-5">
-    <div class="col-md-5">
-        <div class="card shadow fade-in">
+    <div class="col-md-4">
+        <div class="card shadow">
             <div class="card-header bg-primary text-white text-center">
                 <h4 class="mb-0">
                     <i class="fas fa-sign-in-alt"></i> Авторизация
                 </h4>
             </div>
-            <div class="card-body p-4">
-                <form method="POST" action="{{ url_for('login') }}">
+            <div class="card-body">
+                <form method="POST">
                     {{ form.hidden_tag() }}
-                    
                     <div class="mb-3">
                         <label for="login" class="form-label">
                             <i class="fas fa-user"></i> Логин
                         </label>
-                        {{ form.login(class="form-control" + (" is-invalid" if form.login.errors else ""), 
-                                    placeholder="Введите ваш логин", 
-                                    autocomplete="off") }}
-                        {% for error in form.login.errors %}
-                            <div class="invalid-feedback">{{ error }}</div>
-                        {% endfor %}
+                        {{ form.login(class="form-control", placeholder="Введите логин") }}
+                        {% if form.login.errors %}
+                            {% for error in form.login.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
                     </div>
-                    
                     <div class="mb-3">
                         <label for="password" class="form-label">
                             <i class="fas fa-lock"></i> Пароль
                         </label>
-                        {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), 
-                                        placeholder="Введите пароль") }}
-                        {% for error in form.password.errors %}
-                            <div class="invalid-feedback">{{ error }}</div>
-                        {% endfor %}
+                        {{ form.password(class="form-control", placeholder="Введите пароль") }}
+                        {% if form.password.errors %}
+                            {% for error in form.password.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
                     </div>
-                    
                     <button type="submit" class="btn btn-primary w-100">
-                        <i class="fas fa-arrow-right"></i> Войти
+                        <i class="fas fa-sign-in-alt"></i> Войти
                     </button>
                 </form>
                 
-                <hr class="my-4">
+                <hr class="my-3">
                 
-                <div class="alert alert-info small">
-                    <i class="fas fa-info-circle"></i> <strong>Тестовые учётные записи:</strong><br>
-                    <i class="fas fa-user-shield"></i> <strong>Администратор:</strong> admin / admin123<br>
-                    <i class="fas fa-chalkboard-user"></i> <strong>Преподаватель:</strong> создаётся администратором<br>
-                    <i class="fas fa-user-graduate"></i> <strong>Студент:</strong> создаётся администратором<br>
-                    <small class="text-muted">При добавлении студента логин и пароль генерируются автоматически</small>
+                <div class="text-center small text-muted">
+                    <p class="mb-0">Тестовые данные:</p>
+                    <p class="mb-0">Администратор: admin / admin123</p>
+                    {% if current_user.is_anonymous %}
+                    <p class="mb-0 mt-2">
+                        <i class="fas fa-info-circle"></i> 
+                        <a href="#" data-bs-toggle="modal" data-bs-target="#helpModal">Помощь</a>
+                    </p>
+                    {% endif %}
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно помощи -->
+<div class="modal fade" id="helpModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-question-circle"></i> Информация
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6>Тестовые учётные записи:</h6>
+                <ul class="list-unstyled">
+                    <li><strong>Администратор:</strong> admin / admin123</li>
+                    <li class="mt-2"><strong>Преподаватель:</strong> (создайте в админ-панели)</li>
+                    <li><strong>Студент:</strong> (создайте в админ-панели)</li>
+                </ul>
+                <hr>
+                <p class="mb-0 small">
+                    <i class="fas fa-shield-alt"></i> После входа вы будете перенаправлены на главную страницу.
+                </p>
             </div>
         </div>
     </div>

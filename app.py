@@ -9,19 +9,15 @@ from datetime import datetime, date
 import pandas as pd
 from io import BytesIO
 import os
+from sqlalchemy import func
+
+from models import Schedule
 
 # ==================== КОНФИГУРАЦИЯ ====================
 class Config:
-    SECRET_KEY = 'your-secret-key-change-this-in-production'
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///journal.db'
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
-    
     ROLE_ADMIN = 'admin'
     ROLE_TEACHER = 'teacher'
     ROLE_STUDENT = 'student'
-    
-    WORK_TYPES = ['лекция', 'практика', 'экзамен']
-    GRADES = [2, 3, 4, 5]
     EXCELLENT_THRESHOLD = 4.75
     DEBTOR_THRESHOLD = 3.0
 
@@ -32,9 +28,14 @@ class LoginForm(FlaskForm):
 
 # ==================== ИНИЦИАЛИЗАЦИЯ ====================
 app = Flask(__name__)
-app.config.from_object(Config)
+app.config['SECRET_KEY'] = 'your-secret-key-change-this-in-production'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///journal.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Создаём экземпляр БД ПЕРЕД импортом моделей
 db = SQLAlchemy(app)
+
+# Инициализация LoginManager
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -119,6 +120,21 @@ class ActionLog(db.Model):
     ip_address = db.Column(db.String(50))
     timestamp = db.Column(db.DateTime, nullable=False, default=datetime.now)
 
+class Schedule(db.Model):
+    __tablename__ = 'schedule'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=False)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
+    classroom = db.Column(db.String(20), nullable=False)
+    day_of_week = db.Column(db.Integer, nullable=False)
+    start_time = db.Column(db.String(5), nullable=False)  # "09:00"
+    end_time = db.Column(db.String(5), nullable=False)    # "10:30"
+    
+    # Связи
+    group = db.relationship('Group', backref='schedule_items', lazy=True)
+    subject = db.relationship('Subject', backref='schedule_items', lazy=True)
+
 class LoginAttempt(db.Model):
     __tablename__ = 'login_attempts'
     id = db.Column(db.Integer, primary_key=True)
@@ -126,6 +142,20 @@ class LoginAttempt(db.Model):
     ip_address = db.Column(db.String(50), nullable=False)
     timestamp = db.Column(db.DateTime, nullable=False, default=datetime.now)
     success = db.Column(db.Boolean, nullable=False)
+
+class Message(db.Model):
+    __tablename__ = 'messages'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    from_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    to_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    subject = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    
+    from_user = db.relationship('User', foreign_keys=[from_user_id])
+    to_user = db.relationship('User', foreign_keys=[to_user_id])
 
 # ==================== ДЕКОРАТОРЫ РОЛЕЙ ====================
 from functools import wraps
@@ -151,7 +181,7 @@ def teacher_required(f):
 # ==================== ЗАГРУЗЧИК ПОЛЬЗОВАТЕЛЯ ====================
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 # ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
 def log_action(action, target=None):
@@ -379,10 +409,29 @@ def add_user():
     full_name = request.form['full_name']
     role = request.form['role']
     password = request.form['password']
+    group_id = request.form.get('group_id')  # Для студентов
+    
+    # Проверка на существующего пользователя
+    existing = User.query.filter_by(login=login).first()
+    if existing:
+        flash('Пользователь с таким логином уже существует', 'danger')
+        return redirect(url_for('admin_users'))
     
     user = User(login=login, full_name=full_name, role=role)
     user.set_password(password)
     db.session.add(user)
+    db.session.flush()  # Чтобы получить user.id
+    
+    # Если это студент, создаём запись в таблице students
+    if role == 'student' and group_id:
+        student = Student(
+            full_name=full_name,
+            birth_date=datetime.now().date(),  # Временная дата
+            group_id=group_id,
+            user_id=user.id
+        )
+        db.session.add(student)
+    
     db.session.commit()
     log_action(f'Добавлен пользователь {login}')
     flash('Пользователь добавлен', 'success')
@@ -505,7 +554,7 @@ def add_grade():
         flash('Оценка выставлена', 'success')
     
     db.session.commit()
-    student = Student.query.get(student_id)
+    student = db.session.get(Student, student_id)
     log_action(f'Выставлена оценка {grade_value} по предмету {subject.name} студенту {student.full_name}')
     
     return redirect(url_for('teacher_grades', subject_id=subject_id))
@@ -570,7 +619,7 @@ def student_my_grades():
         student = Student.query.filter_by(user_id=current_user.id).first()
     else:
         student_id = request.args.get('student_id')
-        student = Student.query.get(student_id) if student_id else None
+        student = db.session.get(Student, student_id) if student_id else None
     
     if not student:
         flash('Студент не найден', 'danger')
@@ -659,7 +708,7 @@ def report_chart():
     total_grades_count = 0
     
     if selected_group_id:
-        selected_group = Group.query.get(selected_group_id)
+        selected_group = db.session.get(Group,selected_group_id)
         if selected_group:
             students = Student.query.filter_by(group_id=selected_group_id).all()
             subjects = Subject.query.all()
@@ -740,6 +789,253 @@ def export_group_excel(group_id):
         as_attachment=True,
         download_name=f'успеваемость_{filename}.xlsx'
     )
+
+@app.route('/messages/send', methods=['GET', 'POST'])
+@login_required
+def send_message():
+    if request.method == 'POST':
+        to_user_id = request.form['to_user_id']
+        subject = request.form['subject']
+        content = request.form['content']
+        
+        message = Message(
+            from_user_id=current_user.id,
+            to_user_id=to_user_id,
+            subject=subject,
+            content=content
+        )
+        db.session.add(message)
+        db.session.commit()
+        flash('Сообщение отправлено', 'success')
+        return redirect(url_for('index'))
+    
+    # Для преподавателей показываем только администратора
+    admins = User.query.filter_by(role='admin').all()
+    return render_template('messages/send.html', admins=admins)
+
+@app.route('/messages/inbox')
+@login_required
+def inbox():
+    messages = Message.query.filter_by(to_user_id=current_user.id).order_by(Message.created_at.desc()).all()
+    return render_template('messages/inbox.html', messages=messages)
+
+@app.route('/messages/read/<int:message_id>')
+@login_required
+def read_message(message_id):
+    message = Message.query.get_or_404(message_id)
+    if message.to_user_id != current_user.id:
+        flash('Нет доступа', 'danger')
+        return redirect(url_for('inbox'))
+    
+    message.is_read = True
+    db.session.commit()
+    return render_template('messages/read.html', message=message)
+
+@app.route('/messages/delete/<int:message_id>')
+@login_required
+def delete_message(message_id):
+    message = Message.query.get_or_404(message_id)
+    if message.to_user_id != current_user.id and not current_user.is_admin():
+        flash('Нет доступа', 'danger')
+        return redirect(url_for('inbox'))
+    
+    db.session.delete(message)
+    db.session.commit()
+    flash('Сообщение удалено', 'success')
+    return redirect(url_for('inbox'))
+
+# ==================== РАСПИСАНИЕ ====================
+
+# Словарь для перевода дня недели
+DAYS_OF_WEEK = {
+    1: 'Понедельник',
+    2: 'Вторник',
+    3: 'Среда',
+    4: 'Четверг',
+    5: 'Пятница',
+    6: 'Суббота',
+    7: 'Воскресенье'
+}
+
+@app.route('/schedule')
+@login_required
+def view_schedule():
+    """Просмотр расписания (для студента и преподавателя)"""
+    if current_user.is_student():
+        student = Student.query.filter_by(user_id=current_user.id).first()
+        if student:
+            group_id = student.group_id
+        else:
+            flash('Студент не найден', 'danger')
+            return redirect(url_for('index'))
+    elif current_user.is_teacher():
+        # Преподаватель видит расписание всех групп, где он ведёт предметы
+        group_ids = db.session.query(Schedule.group_id).join(Subject).filter(Subject.teacher_id == current_user.id).distinct().all()
+        group_ids = [g[0] for g in group_ids]
+        group_id = request.args.get('group_id', type=int)
+        if not group_id and group_ids:
+            group_id = group_ids[0]
+    else:
+        # Администратор может выбрать любую группу
+        group_id = request.args.get('group_id', type=int)
+    
+    groups = Group.query.all()
+    selected_group = None
+    schedule_by_day = {}
+    
+    if group_id:
+        selected_group = db.session.get(Group, group_id)
+        if selected_group:
+            schedule_items = Schedule.query.filter_by(group_id=group_id).order_by(Schedule.day_of_week, Schedule.start_time).all()
+            
+            # Группируем по дням недели
+            for day_num in range(1, 8):
+                day_schedule = [item for item in schedule_items if item.day_of_week == day_num]
+                if day_schedule:
+                    schedule_by_day[day_num] = day_schedule
+    
+    return render_template('schedule/view.html',
+                         groups=groups,
+                         selected_group=selected_group,
+                         schedule_by_day=schedule_by_day,
+                         days_of_week=DAYS_OF_WEEK)
+
+
+@app.route('/admin/schedule')
+@admin_required
+def admin_schedule():
+    """Управление расписанием для администратора"""
+    groups = Group.query.all()
+    all_subjects = Subject.query.all()  # Добавляем список всех предметов
+    selected_group_id = request.args.get('group_id', type=int)
+    
+    schedule_items = []
+    selected_group = None
+    
+    if selected_group_id:
+        selected_group = db.session.get(Group, selected_group_id)  # Заменяем Group.query.get на db.session.get
+        if selected_group:
+            schedule_items = Schedule.query.filter_by(group_id=selected_group_id).order_by(Schedule.day_of_week, Schedule.start_time).all()
+    
+    return render_template('admin/schedule.html',
+                         groups=groups,
+                         subjects=all_subjects,  # Передаём предметы
+                         selected_group=selected_group,
+                         schedule_items=schedule_items,
+                         days_of_week=DAYS_OF_WEEK)
+
+
+@app.route('/admin/schedule/add', methods=['POST'])
+@admin_required
+def add_schedule_item():
+    """Добавление занятия в расписание"""
+    group_id = request.form['group_id']
+    subject_id = request.form['subject_id']
+    classroom = request.form['classroom']
+    day_of_week = int(request.form['day_of_week'])
+    start_time = request.form['start_time']
+    end_time = request.form['end_time']
+    
+    # Проверка на конфликт (занятие в то же время, та же группа)
+    conflict = Schedule.query.filter_by(
+        group_id=group_id,
+        day_of_week=day_of_week,
+        start_time=start_time
+    ).first()
+    
+    if conflict:
+        flash('В это время уже есть занятие!', 'danger')
+        return redirect(url_for('admin_schedule', group_id=group_id))
+    
+    schedule = Schedule(
+        group_id=group_id,
+        subject_id=subject_id,
+        classroom=classroom,
+        day_of_week=day_of_week,
+        start_time=start_time,
+        end_time=end_time
+    )
+    
+    db.session.add(schedule)
+    db.session.commit()
+    
+    group = db.session.get(Group, group_id)
+    subject = Subject.query.get(subject_id)
+    log_action(f'Добавлено занятие в расписание группы {group.name}: {subject.name} в {start_time}')
+    flash('Занятие добавлено в расписание', 'success')
+    
+    return redirect(url_for('admin_schedule', group_id=group_id))
+
+
+@app.route('/admin/schedule/edit/<int:schedule_id>', methods=['POST'])
+@admin_required
+def edit_schedule_item(schedule_id):
+    """Редактирование занятия в расписании"""
+    schedule = Schedule.query.get_or_404(schedule_id)
+    
+    schedule.classroom = request.form['classroom']
+    schedule.start_time = request.form['start_time']
+    schedule.end_time = request.form['end_time']
+    
+    db.session.commit()
+    
+    log_action(f'Изменено занятие в расписании (ID: {schedule_id})')
+    flash('Занятие обновлено', 'success')
+    
+    return redirect(url_for('admin_schedule', group_id=schedule.group_id))
+
+
+@app.route('/admin/schedule/delete/<int:schedule_id>')
+@admin_required
+def delete_schedule_item(schedule_id):
+    """Удаление занятия из расписания"""
+    schedule = Schedule.query.get_or_404(schedule_id)
+    group_id = schedule.group_id
+    
+    log_action(f'Удалено занятие из расписания (ID: {schedule_id})')
+    db.session.delete(schedule)
+    db.session.commit()
+    
+    flash('Занятие удалено из расписания', 'success')
+    return redirect(url_for('admin_schedule', group_id=group_id))
+
+
+@app.route('/admin/schedule/bulk_add', methods=['POST'])
+@admin_required
+def bulk_add_schedule():
+    """Массовое добавление расписания для группы"""
+    group_id = request.form['group_id']
+    subjects_json = request.form.get('subjects_json', '[]')
+    
+    import json
+    subjects_data = json.loads(subjects_json)
+    
+    added_count = 0
+    for item in subjects_data:
+        # Проверка на конфликт
+        conflict = Schedule.query.filter_by(
+            group_id=group_id,
+            day_of_week=item['day_of_week'],
+            start_time=item['start_time']
+        ).first()
+        
+        if not conflict:
+            schedule = Schedule(
+                group_id=group_id,
+                subject_id=item['subject_id'],
+                classroom=item['classroom'],
+                day_of_week=item['day_of_week'],
+                start_time=item['start_time'],
+                end_time=item['end_time']
+            )
+            db.session.add(schedule)
+            added_count += 1
+    
+    db.session.commit()
+    
+    flash(f'Добавлено {added_count} занятий в расписание', 'success')
+    return redirect(url_for('admin_schedule', group_id=group_id))
+
 # ==================== ЗАПУСК ПРИЛОЖЕНИЯ ====================
 if __name__ == '__main__':
     with app.app_context():

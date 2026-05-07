@@ -137,3 +137,22 @@ class LoginAttempt(db.Model):
     
     def __repr__(self):
         return f'<LoginAttempt {self.login} - {"Success" if self.success else "Failed"}>'
+    
+class Schedule(db.Model):
+    __tablename__ = 'schedule'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=False)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
+    classroom = db.Column(db.String(20), nullable=False)
+    day_of_week = db.Column(db.Integer, nullable=False)
+    start_time = db.Column(db.String(10), nullable=False)
+    end_time = db.Column(db.String(10), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    
+    # Связи
+    group = db.relationship('Group', backref='schedule_items', lazy=True)
+    subject = db.relationship('Subject', backref='schedule_items', lazy=True)
+    
+    def __repr__(self):
+        return f'<Schedule {self.group.name} - {self.subject.name}>'

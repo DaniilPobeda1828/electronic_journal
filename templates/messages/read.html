@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Просмотр сообщения{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card bg-primary text-white mb-4">
+        <div class="card-body">
+            <h2><i class="fas fa-envelope-open-text"></i> Просмотр сообщения</h2>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">{{ message.subject }}</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <strong>От:</strong> {{ message.from_user.full_name }} ({{ message.from_user.login }})
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <strong>Дата:</strong> {{ message.created_at.strftime('%d.%m.%Y %H:%M') }}
+                </div>
+            </div>
+            
+            <hr>
+            
+            <div class="message-content p-3 bg-light rounded">
+                {{ message.content|replace('\n', '<br>')|safe }}
+            </div>
+            
+            <hr>
+            
+            <div class="mt-3">
+                <a href="{{ url_for('inbox') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Назад
+                </a>
+                <a href="{{ url_for('delete_message', message_id=message.id) }}" 
+                   class="btn btn-danger"
+                   onclick="return confirm('Удалить сообщение?')">
+                    <i class="fas fa-trash"></i> Удалить
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
