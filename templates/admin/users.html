@@ -37,6 +37,8 @@
                     </thead>
                     <tbody>
                         {% for user in users %}
+                        {# Показываем только администраторов и преподавателей, исключаем студентов #}
+                        {% if not user.is_student() %}
                         <tr class="{% if user.is_admin() %}table-primary{% endif %}">
                             <td>{{ user.id }}</td>
                             <td><code>{{ user.login }}</code></td>
@@ -50,14 +52,9 @@
                                 <span class="badge bg-info">
                                     <i class="fas fa-chalkboard-teacher"></i> Преподаватель
                                 </span>
-                                {% else %}
-                                <span class="badge bg-success">
-                                    <i class="fas fa-user-graduate"></i> Студент
-                                </span>
                                 {% endif %}
                             </td>
-                            <td>{{ user.created_at.strftime('%d.%m.%Y %H:%M') if user.created_at else 'Нет данных' }}
-                            </td>
+                            <td>{{ user.created_at.strftime('%d.%m.%Y %H:%M') if user.created_at else 'Нет данных' }}</td>
                             <td>
                                 <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal"
                                     data-bs-target="#editUserModal{{ user.id }}">
@@ -96,11 +93,10 @@
                                                 <select name="role" class="form-select" required>
                                                     <option value="admin" {% if user.is_admin() %}selected{% endif %}>
                                                         Администратор</option>
-                                                    <option value="teacher" {% if user.is_teacher() %}selected{% endif
-                                                        %}>Преподаватель</option>
-                                                    <option value="student" {% if user.is_student() %}selected{% endif
-                                                        %}>Студент</option>
+                                                    <option value="teacher" {% if user.is_teacher() %}selected{% endif %}>
+                                                        Преподаватель</option>
                                                 </select>
+                                                <small class="text-muted">Примечание: студентов можно добавлять только через раздел "Студенты"</small>
                                             </div>
                                         </div>
                                         <div class="modal-footer">
@@ -155,8 +151,7 @@
                                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                     </div>
                                     <div class="modal-body">
-                                        <p>Вы уверены, что хотите удалить пользователя <strong>{{ user.full_name
-                                                }}</strong>?</p>
+                                        <p>Вы уверены, что хотите удалить пользователя <strong>{{ user.full_name }}</strong>?</p>
                                         <p class="text-danger">
                                             <i class="fas fa-exclamation-triangle"></i>
                                             Пользователь будет полностью удалён из системы.
@@ -172,6 +167,7 @@
                             </div>
                         </div>
                         {% endif %}
+                        {% endif %}
                         {% endfor %}
                     </tbody>
                 </table>
@@ -185,7 +181,7 @@
     </div>
 </div>
 
-<!-- Модальное окно добавления пользователя -->
+<!-- Модальное окно добавления пользователя (только админ/преподаватель) -->
 <div class="modal fade" id="addUserModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -193,28 +189,12 @@
                 <h5 class="modal-title">Добавление пользователя</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="mb-3" id="groupField" style="display: none;">
-                <label for="group_id" class="form-label">Группа (для студентов)</label>
-                <select name="group_id" class="form-select">
-                    <option value="">Выберите группу</option>
-                    {% for group in groups %}
-                    <option value="{{ group.id }}">{{ group.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <script>
-                document.querySelector('select[name="role"]').addEventListener('change', function () {
-                    var groupField = document.getElementById('groupField');
-                    if (this.value === 'student') {
-                        groupField.style.display = 'block';
-                    } else {
-                        groupField.style.display = 'none';
-                    }
-                });
-            </script>
             <form action="{{ url_for('add_user') }}" method="POST">
                 <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        Для добавления студентов используйте раздел <strong>"Управление студентами"</strong>.
+                    </div>
                     <div class="mb-3">
                         <label for="login" class="form-label">Логин</label>
                         <input type="text" class="form-control" name="login" placeholder="ivanov" required>
@@ -233,8 +213,8 @@
                         <select name="role" class="form-select" required>
                             <option value="admin">Администратор</option>
                             <option value="teacher">Преподаватель</option>
-                            <option value="student">Студент</option>
                         </select>
+                        <small class="text-muted">Студенты создаются автоматически при добавлении через раздел "Студенты"</small>
                     </div>
                 </div>
                 <div class="modal-footer">

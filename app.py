@@ -402,6 +402,7 @@ def admin_users():
     users = User.query.all()
     return render_template('admin/users.html', users=users)
 
+# ==================== ИСПРАВЛЕННЫЙ МАРШРУТ ДОБАВЛЕНИЯ ПОЛЬЗОВАТЕЛЯ ====================
 @app.route('/admin/users/add', methods=['POST'])
 @admin_required
 def add_user():
@@ -409,7 +410,11 @@ def add_user():
     full_name = request.form['full_name']
     role = request.form['role']
     password = request.form['password']
-    group_id = request.form.get('group_id')  # Для студентов
+    
+    # ЗАПРЕЩАЕМ создание студентов через этот роут
+    if role == 'student':
+        flash('Студентов можно добавлять только через раздел "Управление студентами"', 'danger')
+        return redirect(url_for('admin_users'))
     
     # Проверка на существующего пользователя
     existing = User.query.filter_by(login=login).first()
@@ -420,17 +425,6 @@ def add_user():
     user = User(login=login, full_name=full_name, role=role)
     user.set_password(password)
     db.session.add(user)
-    db.session.flush()  # Чтобы получить user.id
-    
-    # Если это студент, создаём запись в таблице students
-    if role == 'student' and group_id:
-        student = Student(
-            full_name=full_name,
-            birth_date=datetime.now().date(),  # Временная дата
-            group_id=group_id,
-            user_id=user.id
-        )
-        db.session.add(student)
     
     db.session.commit()
     log_action(f'Добавлен пользователь {login}')
@@ -741,7 +735,7 @@ def report_chart():
                          subject_averages=subject_averages,
                          total_grades_count=total_grades_count)
 
-# ==================== ЭКСПОРТ В EXCEL (Модификация 1) ====================
+# ==================== ЭКСПОРТ В EXCEL ====================
 @app.route('/export/group/<int:group_id>')
 @login_required
 def export_group_excel(group_id):
@@ -809,7 +803,7 @@ def send_message():
         flash('Сообщение отправлено', 'success')
         return redirect(url_for('index'))
     
-    # Для преподавателей показываем только администратора
+    # Для преподавателей показываем только администраторов
     admins = User.query.filter_by(role='admin').all()
     return render_template('messages/send.html', admins=admins)
 
@@ -906,20 +900,20 @@ def view_schedule():
 def admin_schedule():
     """Управление расписанием для администратора"""
     groups = Group.query.all()
-    all_subjects = Subject.query.all()  # Добавляем список всех предметов
+    all_subjects = Subject.query.all()
     selected_group_id = request.args.get('group_id', type=int)
     
     schedule_items = []
     selected_group = None
     
     if selected_group_id:
-        selected_group = db.session.get(Group, selected_group_id)  # Заменяем Group.query.get на db.session.get
+        selected_group = db.session.get(Group, selected_group_id)
         if selected_group:
             schedule_items = Schedule.query.filter_by(group_id=selected_group_id).order_by(Schedule.day_of_week, Schedule.start_time).all()
     
     return render_template('admin/schedule.html',
                          groups=groups,
-                         subjects=all_subjects,  # Передаём предметы
+                         subjects=all_subjects,
                          selected_group=selected_group,
                          schedule_items=schedule_items,
                          days_of_week=DAYS_OF_WEEK)
