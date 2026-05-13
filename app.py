@@ -1,3 +1,5 @@
+import re
+
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, Length
@@ -185,11 +187,12 @@ def load_user(user_id):
 
 # ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
 def log_action(action, target=None):
-    if current_user.is_authenticated:
+    if current_user.is_authenticated and current_user.id:
         ip = request.remote_addr
         log = ActionLog(user_id=current_user.id, action=action, target=target, ip_address=ip)
         db.session.add(log)
         db.session.commit()
+    # Если пользователь не авторизован, не логируем (или логируем с user_id = 1 - админ)
 
 # ==================== МАРШРУТЫ ====================
 @app.route('/login', methods=['GET', 'POST'])
@@ -317,18 +320,81 @@ def add_student():
     birth_date = datetime.strptime(request.form['birth_date'], '%Y-%m-%d')
     group_id = request.form['group_id']
     
-    login = f"student_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    user = User(login=login, password_hash=generate_password_hash(login), role='student', full_name=full_name)
+    # Генерируем логин из ФИО (транслит)
+    login = generate_login_from_name(full_name)
+    
+    # Проверяем уникальность логина
+    original_login = login
+    counter = 1
+    while User.query.filter_by(login=login).first():
+        login = f"{original_login}{counter}"
+        counter += 1
+    
+    # Пароль (если введён, иначе генерируем)
+    password = request.form.get('password', '').strip()
+    if not password:
+        password = generate_random_password()
+    
+    # Создаём пользователя
+    user = User(
+        login=login,
+        password_hash=generate_password_hash(password),
+        role='student',
+        full_name=full_name
+    )
     db.session.add(user)
     db.session.flush()
     
-    student = Student(full_name=full_name, birth_date=birth_date, group_id=group_id, user_id=user.id)
+    # Создаём студента
+    student = Student(
+        full_name=full_name,
+        birth_date=birth_date,
+        group_id=group_id,
+        user_id=user.id
+    )
     db.session.add(student)
     db.session.commit()
     
-    log_action(f'Добавлен студент {full_name}')
-    flash(f'Студент добавлен. Логин: {login}, пароль: {login}', 'success')
+    log_action(f'Добавлен студент {full_name} с логином {login}')
+    flash(f'✅ Студент добавлен!<br>📌 Логин: <strong>{login}</strong><br>🔑 Пароль: <strong>{password}</strong>', 'success')
     return redirect(url_for('admin_students'))
+
+def generate_login_from_name(full_name):
+    """Генерация логина из ФИО (транслит)"""
+    translit_map = {
+        'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
+        'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
+        'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
+        'ф': 'f', 'х': 'kh', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'shch',
+        'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
+        'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ё': 'E',
+        'Ж': 'Zh', 'З': 'Z', 'И': 'I', 'Й': 'Y', 'К': 'K', 'Л': 'L', 'М': 'M',
+        'Н': 'N', 'О': 'O', 'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U',
+        'Ф': 'F', 'Х': 'Kh', 'Ц': 'Ts', 'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Shch',
+        'Ъ': '', 'Ы': 'Y', 'Ь': '', 'Э': 'E', 'Ю': 'Yu', 'Я': 'Ya'
+    }
+    
+    # Берём первые буквы фамилии и имени
+    parts = full_name.strip().split()
+    if len(parts) >= 2:
+        lastname = parts[0]
+        firstname = parts[1]
+        # Транслитерация
+        login = ''.join(translit_map.get(ch, ch) for ch in lastname).lower()
+        login += '_' + ''.join(translit_map.get(ch, ch) for ch in firstname[0]).lower()
+    else:
+        login = ''.join(translit_map.get(ch, ch) for ch in full_name).lower()
+    
+    # Убираем лишние символы
+    login = re.sub(r'[^a-z0-9_]', '', login)
+    return login
+
+def generate_random_password(length=8):
+    """Генерация случайного пароля"""
+    import random
+    import string
+    chars = string.ascii_letters + string.digits
+    return ''.join(random.choice(chars) for _ in range(length))
 
 @app.route('/admin/students/edit/<int:student_id>', methods=['POST'])
 @admin_required
@@ -347,12 +413,26 @@ def edit_student(student_id):
 def delete_student(student_id):
     student = Student.query.get_or_404(student_id)
     name = student.full_name
+    
+    # Сначала удаляем связанные оценки
+    for grade in student.grades:
+        db.session.delete(grade)
+    
+    # Затем удаляем связанного пользователя (если есть)
     if student.user:
         db.session.delete(student.user)
+    
+    # И только потом удаляем студента
     db.session.delete(student)
-    db.session.commit()
-    log_action(f'Удалён студент {name}')
-    flash('Студент удалён', 'success')
+    
+    try:
+        db.session.commit()
+        log_action(f'Удалён студент {name}')
+        flash('Студент удалён', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Ошибка при удалении: {str(e)}', 'danger')
+    
     return redirect(url_for('admin_students'))
 
 @app.route('/admin/subjects')
@@ -459,12 +539,34 @@ def delete_user(user_id):
     user = User.query.get_or_404(user_id)
     if user.is_admin():
         flash('Нельзя удалить администратора', 'danger')
-    else:
-        login = user.login
-        db.session.delete(user)
+        return redirect(url_for('admin_users'))
+    
+    login = user.login
+    
+    # Если это студент, сначала удаляем связанную запись студента
+    if user.is_student():
+        student = Student.query.filter_by(user_id=user.id).first()
+        if student:
+            # Удаляем оценки студента
+            for grade in student.grades:
+                db.session.delete(grade)
+            db.session.delete(student)
+    
+    # Если это преподаватель, удаляем его предметы (или переназначаем)
+    if user.is_teacher():
+        for subject in user.subjects:
+            subject.teacher_id = None  # Или назначить другого преподавателя
+    
+    db.session.delete(user)
+    
+    try:
         db.session.commit()
         log_action(f'Удалён пользователь {login}')
         flash('Пользователь удалён', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Ошибка при удалении: {str(e)}', 'danger')
+    
     return redirect(url_for('admin_users'))
 
 @app.route('/admin/logs')

@@ -190,36 +190,135 @@
                 <h5 class="modal-title">Добавление студента</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form action="{{ url_for('add_student') }}" method="POST">
+            <form action="{{ url_for('add_student') }}" method="POST" id="addStudentForm">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="full_name" class="form-label">ФИО</label>
-                        <input type="text" class="form-control" name="full_name" placeholder="Иванов Иван Иванович" required>
+                        <input type="text" class="form-control" name="full_name" id="full_name" 
+                               placeholder="Иванов Иван Иванович" required>
                     </div>
                     <div class="mb-3">
                         <label for="birth_date" class="form-label">Дата рождения</label>
-                        <input type="date" class="form-control" name="birth_date" required>
+                        <input type="date" class="form-control" name="birth_date" id="birth_date" required>
                     </div>
                     <div class="mb-3">
                         <label for="group_id" class="form-label">Группа</label>
-                        <select name="group_id" class="form-select" required>
+                        <select name="group_id" class="form-select" id="group_id" required>
                             <option value="">Выберите группу</option>
                             {% for group in groups %}
                                 <option value="{{ group.id }}">{{ group.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label">
+                            Пароль 
+                            <small class="text-muted">(оставьте пустым для автогенерации)</small>
+                        </label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" name="password" id="password" 
+                                   placeholder="Автогенерация">
+                            <button type="button" class="btn btn-outline-secondary" id="generatePasswordBtn">
+                                <i class="fas fa-sync-alt"></i> Сгенерировать
+                            </button>
+                        </div>
+                    </div>
+                    
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle"></i> 
-                        После добавления студента будет автоматически создана учётная запись. Логин и пароль будут отображены.
+                        Логин будет сгенерирован автоматически из ФИО (например: ivanov_i)
+                    </div>
+                    
+                    <div class="alert alert-warning" id="previewAlert" style="display: none;">
+                        <i class="fas fa-eye"></i> 
+                        <strong>Предпросмотр:</strong><br>
+                        📌 Логин: <span id="previewLogin">—</span><br>
+                        🔑 Пароль: <span id="previewPassword">—</span>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                    <button type="submit" class="btn btn-success">Добавить</button>
+                    <button type="submit" class="btn btn-success">Добавить студента</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
+{% block extra_js %}
+<script>
+    // Функция транслитерации
+    function transliterate(text) {
+        const map = {
+            'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
+            'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
+            'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
+            'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
+            'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya'
+        };
+        return text.toLowerCase().split('').map(ch => map[ch] || ch).join('');
+    }
+    
+    // Генерация логина из ФИО
+    function generateLogin(fullName) {
+        const parts = fullName.trim().split(/\s+/);
+        if (parts.length >= 2) {
+            const lastName = parts[0];
+            const firstName = parts[1];
+            const login = transliterate(lastName) + '_' + transliterate(firstName.charAt(0));
+            return login.replace(/[^a-z0-9_]/g, '');
+        }
+        return transliterate(fullName).replace(/[^a-z0-9_]/g, '');
+    }
+    
+    // Генерация случайного пароля
+    function generatePassword() {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let password = '';
+        for (let i = 0; i < 8; i++) {
+            password += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return password;
+    }
+    
+    // Обновление предпросмотра
+    function updatePreview() {
+        const fullName = document.getElementById('full_name').value;
+        const passwordField = document.getElementById('password');
+        let password = passwordField.value;
+        
+        if (fullName.trim()) {
+            const login = generateLogin(fullName);
+            document.getElementById('previewLogin').textContent = login;
+            document.getElementById('previewAlert').style.display = 'block';
+        } else {
+            document.getElementById('previewAlert').style.display = 'none';
+        }
+        
+        if (password) {
+            document.getElementById('previewPassword').textContent = password;
+        } else {
+            document.getElementById('previewPassword').textContent = '(будет сгенерирован автоматически)';
+        }
+    }
+    
+    // Обработчики событий
+    document.getElementById('full_name').addEventListener('input', updatePreview);
+    document.getElementById('password').addEventListener('input', updatePreview);
+    
+    document.getElementById('generatePasswordBtn').addEventListener('click', function() {
+        const newPassword = generatePassword();
+        document.getElementById('password').value = newPassword;
+        updatePreview();
+    });
+    
+    // При открытии модального окна сбрасываем форму
+    document.getElementById('addStudentModal').addEventListener('show.bs.modal', function() {
+        document.getElementById('addStudentForm').reset();
+        document.getElementById('previewAlert').style.display = 'none';
+    });
+</script>
+{% endblock %}
+
 {% endblock %}
