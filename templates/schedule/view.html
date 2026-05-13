@@ -7,17 +7,25 @@
     <div class="card bg-primary text-white mb-4">
         <div class="card-body">
             <h2><i class="fas fa-calendar-alt"></i> Расписание занятий</h2>
+            <p class="mb-0">
+                {% if is_student %}
+                    Ваше расписание
+                {% else %}
+                    Просмотр расписания по группам
+                {% endif %}
+            </p>
         </div>
     </div>
 
     <div class="row">
+        {% if not is_student %}
         <div class="col-md-3 mb-4">
             <div class="card">
                 <div class="card-header bg-success text-white">
                     <h5>Выбор группы</h5>
                 </div>
                 <div class="card-body">
-                    <form method="GET">
+                    <form method="GET" action="{{ url_for('view_schedule') }}">
                         <select name="group_id" class="form-select" required>
                             <option value="">Выберите группу</option>
                             {% for group in groups %}
@@ -26,60 +34,126 @@
                                 </option>
                             {% endfor %}
                         </select>
-                        <button type="submit" class="btn btn-primary mt-2 w-100">Показать</button>
+                        <button type="submit" class="btn btn-primary mt-2 w-100">
+                            <i class="fas fa-eye"></i> Показать расписание
+                        </button>
                     </form>
                 </div>
             </div>
         </div>
-
         <div class="col-md-9">
-            {% if schedule_items %}
+        {% else %}
+        <div class="col-md-12">
+        {% endif %}
+            
+            {% if selected_group %}
                 <div class="card">
                     <div class="card-header bg-info text-white">
-                        <h5>Группа: {{ selected_group.name }}</h5>
+                        <h5 class="mb-0">
+                            <i class="fas fa-users"></i> Группа: {{ selected_group.name }}
+                        </h5>
                     </div>
                     <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-bordered">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th>День</th>
-                                        <th>Время</th>
-                                        <th>Предмет</th>
-                                        <th>Преподаватель</th>
-                                        <th>Кабинет</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for item in schedule_items %}
-                                    <tr>
-                                        <td>
-                                            {% if item.day_of_week == 1 %}Понедельник
-                                            {% elif item.day_of_week == 2 %}Вторник
-                                            {% elif item.day_of_week == 3 %}Среда
-                                            {% elif item.day_of_week == 4 %}Четверг
-                                            {% elif item.day_of_week == 5 %}Пятница
-                                            {% elif item.day_of_week == 6 %}Суббота
-                                            {% else %}Воскресенье
-                                            {% endif %}
-                                        </td>
-                                        <td>{{ item.start_time }} - {{ item.end_time }}</td>
-                                        <td><strong>{{ item.subject.name }}</strong></td>
-                                        <td>{{ item.subject.teacher.full_name }}</td>
-                                        <td><span class="badge bg-secondary">{{ item.classroom }}</span></td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
+                        {% if schedule_by_day %}
+                            {% set days_order = [1,2,3,4,5,6] %}
+                            {% for day_num in days_order %}
+                                {% if schedule_by_day[day_num] %}
+                                    <div class="card mb-3">
+                                        <div class="card-header bg-secondary text-white">
+                                            <h5 class="mb-0">{{ days_map[day_num]['ru'] }}</h5>
+                                        </div>
+                                        <div class="card-body p-0">
+                                            <div class="table-responsive">
+                                                <table class="table table-bordered mb-0">
+                                                    <thead class="table-dark">
+                                                        <tr>
+                                                            <th style="width: 20%">Время</th>
+                                                            <th style="width: 45%">Предмет / Преподаватель</th>
+                                                            <th style="width: 35%">Кабинет</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for item in schedule_by_day[day_num] %}
+                                                        <tr style="height: 70px;">
+                                                            <td class="align-middle text-center">
+                                                                <span class="fw-bold">{{ item.start_time }}</span>
+                                                                <br>
+                                                                <span class="text-muted small">—</span>
+                                                                <br>
+                                                                <span class="fw-bold">{{ item.end_time }}</span>
+                                                            </td>
+                                                            <td class="align-middle">
+                                                                <span class="fw-bold fs-6">{{ item.subject.name }}</span>
+                                                                <br>
+                                                                <span class="text-muted small">
+                                                                    <i class="fas fa-chalkboard-teacher"></i> 
+                                                                    {{ item.subject.teacher.full_name }}
+                                                                </span>
+                                                            </td>
+                                                            <td class="align-middle text-center">
+                                                                <span class="badge bg-primary p-2 fs-6">
+                                                                    <i class="fas fa-door-open"></i> 
+                                                                    Каб. {{ item.classroom }}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if is_student %}
+                                <div class="alert alert-success mt-3 text-center">
+                                    <i class="fas fa-check-circle"></i> 
+                                    Это расписание вашей группы. Все изменения актуальны.
+                                </div>
+                            {% endif %}
+                            
+                        {% else %}
+                            <div class="alert alert-warning text-center">
+                                <i class="fas fa-exclamation-triangle fa-2x mb-2 d-block"></i>
+                                <strong>Расписание для этой группы пока не составлено.</strong>
+                                <br>
+                                {% if is_teacher %}
+                                    Обратитесь к администратору.
+                                {% else %}
+                                    Пожалуйста, обратитесь к администратору для добавления расписания.
+                                {% endif %}
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
-            {% elif selected_group %}
-                <div class="alert alert-warning">Расписание не составлено</div>
             {% else %}
-                <div class="alert alert-info">Выберите группу</div>
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                        <h5>Выберите группу для просмотра расписания</h5>
+                        <p class="text-muted">В расписании отображаются все занятия группы на неделю</p>
+                    </div>
+                </div>
             {% endif %}
         </div>
     </div>
 </div>
+
+<style>
+    .table tbody tr:hover {
+        background-color: #f0f8ff;
+    }
+    .badge-primary {
+        background-color: #007bff;
+        font-size: 14px;
+        padding: 8px 12px;
+    }
+    .table td {
+        vertical-align: middle;
+    }
+    .fs-6 {
+        font-size: 1rem !important;
+    }
+</style>
 {% endblock %}

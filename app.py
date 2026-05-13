@@ -232,13 +232,12 @@ def logout():
 @app.route('/')
 @login_required
 def index():
-    recent_logs = ActionLog.query.order_by(ActionLog.timestamp.desc()).limit(10).all()
-    
     if current_user.is_admin():
         groups_count = Group.query.count()
         students_count = Student.query.count()
         subjects_count = Subject.query.count()
         users_count = User.query.count()
+        recent_logs = ActionLog.query.order_by(ActionLog.timestamp.desc()).limit(10).all()
         return render_template('index.html', 
                              groups_count=groups_count,
                              students_count=students_count,
@@ -247,9 +246,9 @@ def index():
                              recent_logs=recent_logs)
     elif current_user.is_teacher():
         subjects = Subject.query.filter_by(teacher_id=current_user.id).all()
-        return render_template('index.html', subjects=subjects, recent_logs=recent_logs)
+        return render_template('index.html', subjects=subjects)
     else:
-        return render_template('index.html', recent_logs=recent_logs)
+        return render_template('index.html')
 
 # ==================== АДМИН ПАНЕЛЬ ====================
 @app.route('/admin')
@@ -572,10 +571,18 @@ def delete_user(user_id):
 @app.route('/admin/logs')
 @admin_required
 def admin_logs():
+    """Администратор видит все логи"""
     logs = ActionLog.query.order_by(ActionLog.timestamp.desc()).limit(200).all()
     login_attempts = LoginAttempt.query.order_by(LoginAttempt.timestamp.desc()).limit(100).all()
     users = User.query.all()
     return render_template('admin/logs.html', logs=logs, login_attempts=login_attempts, users=users)
+
+@app.route('/my_logs')
+@login_required
+def my_logs():
+    """Преподаватель и студент видят только свои логи"""
+    logs = ActionLog.query.filter_by(user_id=current_user.id).order_by(ActionLog.timestamp.desc()).limit(100).all()
+    return render_template('my_logs.html', logs=logs)
 
 # ==================== ПРЕПОДАВАТЕЛЬ ====================
 @app.route('/teacher')
@@ -957,45 +964,52 @@ DAYS_OF_WEEK = {
 @login_required
 def view_schedule():
     """Просмотр расписания (для студента и преподавателя)"""
-    if current_user.is_student():
+    groups = Group.query.all()
+    selected_group_id = request.args.get('group_id', type=int)
+    is_student = current_user.is_student()
+    is_teacher = current_user.is_teacher()
+    
+    # Если студент - автоматически выбираем его группу и не даём выбирать другие
+    if is_student:
         student = Student.query.filter_by(user_id=current_user.id).first()
         if student:
-            group_id = student.group_id
-        else:
-            flash('Студент не найден', 'danger')
-            return redirect(url_for('index'))
-    elif current_user.is_teacher():
-        # Преподаватель видит расписание всех групп, где он ведёт предметы
-        group_ids = db.session.query(Schedule.group_id).join(Subject).filter(Subject.teacher_id == current_user.id).distinct().all()
-        group_ids = [g[0] for g in group_ids]
-        group_id = request.args.get('group_id', type=int)
-        if not group_id and group_ids:
-            group_id = group_ids[0]
-    else:
-        # Администратор может выбрать любую группу
-        group_id = request.args.get('group_id', type=int)
+            selected_group_id = student.group_id
+        # Убираем список групп для студента (он видит только свою)
+        groups = []
     
-    groups = Group.query.all()
     selected_group = None
     schedule_by_day = {}
     
-    if group_id:
-        selected_group = db.session.get(Group, group_id)
+    if selected_group_id:
+        selected_group = db.session.get(Group, selected_group_id)
         if selected_group:
-            schedule_items = Schedule.query.filter_by(group_id=group_id).order_by(Schedule.day_of_week, Schedule.start_time).all()
+            schedule_items = Schedule.query.filter_by(group_id=selected_group_id).order_by(Schedule.day_of_week, Schedule.start_time).all()
             
-            # Группируем по дням недели
-            for day_num in range(1, 8):
-                day_schedule = [item for item in schedule_items if item.day_of_week == day_num]
-                if day_schedule:
-                    schedule_by_day[day_num] = day_schedule
+            # Группируем по дням
+            for item in schedule_items:
+                day = item.day_of_week
+                if day not in schedule_by_day:
+                    schedule_by_day[day] = []
+                schedule_by_day[day].append(item)
+    
+    # Словарь дней недели
+    days_map = {
+        1: {'ru': 'Понедельник', 'short': 'ПН'},
+        2: {'ru': 'Вторник', 'short': 'ВТ'},
+        3: {'ru': 'Среда', 'short': 'СР'},
+        4: {'ru': 'Четверг', 'short': 'ЧТ'},
+        5: {'ru': 'Пятница', 'short': 'ПТ'},
+        6: {'ru': 'Суббота', 'short': 'СБ'},
+        7: {'ru': 'Воскресенье', 'short': 'ВС'}
+    }
     
     return render_template('schedule/view.html',
                          groups=groups,
                          selected_group=selected_group,
                          schedule_by_day=schedule_by_day,
-                         days_of_week=DAYS_OF_WEEK)
-
+                         days_map=days_map,
+                         is_student=is_student,
+                         is_teacher=is_teacher)
 
 @app.route('/admin/schedule')
 @admin_required

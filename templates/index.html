@@ -108,8 +108,39 @@
             </div>
         </div>
         
+        <!-- Последние действия (только для администратора) -->
+        <div class="card mt-3">
+            <div class="card-header bg-secondary text-white">
+                <i class="fas fa-history"></i> Последние действия в системе
+            </div>
+            <div class="card-body">
+                {% if recent_logs %}
+                    <div class="list-group">
+                        {% for log in recent_logs %}
+                        <div class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <small class="text-muted">
+                                    <i class="fas fa-user"></i> {{ log.user.full_name }}
+                                </small>
+                                <small class="text-muted">
+                                    <i class="far fa-clock"></i> {{ log.timestamp.strftime('%d.%m.%Y %H:%M') }}
+                                </small>
+                            </div>
+                            <p class="mb-1">{{ log.action }}</p>
+                            {% if log.target %}
+                                <small class="text-muted">Объект: {{ log.target }}</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center">Нет записей</p>
+                {% endif %}
+            </div>
+        </div>
+        
     {% elif current_user.is_teacher() %}
-        <!-- Панель преподавателя -->
+        <!-- Панель преподавателя (без логов) -->
         <div class="row">
             <div class="col-md-12 mb-4">
                 <div class="card">
@@ -146,7 +177,7 @@
         </div>
         
     {% elif current_user.is_student() %}
-        <!-- Панель студента -->
+        <!-- Панель студента (без логов) -->
         <div class="row">
             <div class="col-md-12 mb-4">
                 <div class="card">
@@ -162,36 +193,5 @@
             </div>
         </div>
     {% endif %}
-    
-    <!-- Последние действия (для всех) -->
-    <div class="card mt-3">
-        <div class="card-header bg-secondary text-white">
-            <i class="fas fa-history"></i> Последние действия в системе
-        </div>
-        <div class="card-body">
-            {% if recent_logs %}
-                <div class="list-group">
-                    {% for log in recent_logs %}
-                    <div class="list-group-item list-group-item-action">
-                        <div class="d-flex w-100 justify-content-between">
-                            <small class="text-muted">
-                                <i class="fas fa-user"></i> {{ log.user.full_name }}
-                            </small>
-                            <small class="text-muted">
-                                <i class="far fa-clock"></i> {{ log.timestamp.strftime('%d.%m.%Y %H:%M') }}
-                            </small>
-                        </div>
-                        <p class="mb-1">{{ log.action }}</p>
-                        {% if log.target %}
-                            <small class="text-muted">Объект: {{ log.target }}</small>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <p class="text-muted text-center">Нет записей</p>
-            {% endif %}
-        </div>
-    </div>
 </div>
 {% endblock %}

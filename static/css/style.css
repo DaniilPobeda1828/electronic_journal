@@ -181,6 +181,7 @@ body {
     padding: 5px 10px;
     font-size: 12px;
     border-radius: 20px;
+    margin: 15px;
 }
 
 .badge-grade-2 { background-color: #dc3545; color: white; }
