@@ -8,3 +8,5 @@ openpyxl==3.1.2           # для экспорта Excel
 pandas==2.0.3             # для удобной обработки данных (опционально)
 bcrypt==4.0.1             # хэширование паролей
 python-dateutil==2.8.2
+pytest==7.4.3
+pytest-flask==1.2.0
