@@ -102,7 +102,7 @@ electronic_journal/
 ├── forms.py                   # WTForms
 ├── models.py                  # Файл с формами
 ├── requirements.txt           # Зависимости
-├── instance/
+├── instance/                  # папка создается автоматически при запуске проекта
 │   └── journal.db             # База данных
 ├── static/
 │   ├── css/
